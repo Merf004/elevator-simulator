@@ -1,9 +1,10 @@
 import React from 'react';
+import { History } from 'lucide-react';
 
 export default function HistoryPanel({ history }) {
   return (
     <aside className="history-panel">
-      <h2>📜 Historique</h2>
+      <h2><History size={16} /> Historique</h2>
       <ul>
         {history.length === 0 && <li className="empty">Aucun mouvement pour l'instant</li>}
         {history.map((entry, i) => (

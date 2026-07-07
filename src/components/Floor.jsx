@@ -1,4 +1,5 @@
 import React from 'react';
+import { Bell, Clock } from 'lucide-react';
 
 export default function Floor({ label, floorIndex, isPending, onCall }) {
   return (
@@ -10,7 +11,7 @@ export default function Floor({ label, floorIndex, isPending, onCall }) {
         disabled={isPending}
         title={isPending ? 'Appel en cours' : "Appeler l'ascenseur"}
       >
-        {isPending ? '⏳' : '🔔'}
+        {isPending ? <Clock size={16} /> : <Bell size={16} />}
       </button>
     </div>
   );

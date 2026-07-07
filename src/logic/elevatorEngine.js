@@ -1,14 +1,13 @@
 import { TIMING } from '../constants';
 
-// --- Création d'un ascenseur ---
 export function createElevator(id) {
   return {
     id,
     floor: 0,
-    direction: 'idle',   // 'up' | 'down' | 'idle'
-    status: 'idle',      // 'idle' | 'moving' | 'doors'
-    doorState: 'closed', // 'closed' | 'opening' | 'open' | 'closing'
-    targets: [],          // étages à desservir (triés)
+    direction: 'idle',
+    status: 'idle',
+    doorState: 'closed',
+    targets: [],
     timer: 0,
   };
 }
@@ -30,17 +29,22 @@ function nextDirection(targets, floor) {
   return 'idle';
 }
 
-// --- Ajoute une demande (appel palier OU sélection cabine) ---
 export function addTarget(elevator, floor) {
   const targets = sortedInsert(elevator.targets, floor);
   let { direction, status, timer } = elevator;
 
   if (status === 'idle') {
     if (floor === elevator.floor) {
-      // déjà là : on ouvre juste les portes
       status = 'doors';
       timer = TIMING.DOOR_OPENING;
-      return { ...elevator, targets: targets.filter((t) => t !== floor), direction: 'idle', status, doorState: 'opening', timer };
+      return {
+        ...elevator,
+        targets: targets.filter((t) => t !== floor),
+        direction: 'idle',
+        status,
+        doorState: 'opening',
+        timer,
+      };
     }
     direction = floor > elevator.floor ? 'up' : 'down';
     status = 'moving';
@@ -52,9 +56,9 @@ export function addTarget(elevator, floor) {
 
 /**
  * Fait avancer un ascenseur de dt millisecondes (déjà ajusté à la vitesse).
- * Implémente l'algorithme SCAN/LOOK :
- * - continue dans sa direction tant qu'il y a des demandes dans cette direction
- * - ne change de sens que lorsque toutes les demandes de ce sens sont traitées
+ * Algorithme SCAN/LOOK : continue dans sa direction tant qu'il existe des
+ * demandes dans cette direction, ne change de sens qu'une fois toutes
+ * les demandes de ce sens traitées.
  * Retourne [nouvelEtatAscenseur, evenements[]]
  */
 export function tickElevator(elevator, dt) {
@@ -73,13 +77,14 @@ export function tickElevator(elevator, dt) {
       e.timer = TIMING.DOOR_OPENING;
       events.push({ type: 'arrive', elevatorId: e.id, floor: e.floor });
     } else if (hasTargetsInDirection(e.targets, e.floor, e.direction)) {
-      e.timer = TIMING.TRAVEL_PER_FLOOR; // on continue tout droit
+      e.timer = TIMING.TRAVEL_PER_FLOOR;
     } else {
       const nd = nextDirection(e.targets, e.floor);
       if (nd === 'idle') {
         e.status = 'idle';
         e.direction = 'idle';
         e.timer = 0;
+        events.push({ type: 'idle', elevatorId: e.id, floor: e.floor });
       } else {
         e.direction = nd;
         e.timer = TIMING.TRAVEL_PER_FLOOR;
@@ -89,9 +94,11 @@ export function tickElevator(elevator, dt) {
     if (e.doorState === 'opening') {
       e.doorState = 'open';
       e.timer = TIMING.DOOR_STAY;
+      events.push({ type: 'doors_open', elevatorId: e.id, floor: e.floor });
     } else if (e.doorState === 'open') {
       e.doorState = 'closing';
       e.timer = TIMING.DOOR_CLOSING;
+      events.push({ type: 'doors_closing', elevatorId: e.id, floor: e.floor });
     } else if (e.doorState === 'closing') {
       e.doorState = 'closed';
       const nd = nextDirection(e.targets, e.floor);
@@ -99,11 +106,12 @@ export function tickElevator(elevator, dt) {
         e.status = 'idle';
         e.direction = 'idle';
         e.timer = 0;
+        events.push({ type: 'idle', elevatorId: e.id, floor: e.floor });
       } else {
         e.direction = nd;
         e.status = 'moving';
         e.timer = TIMING.TRAVEL_PER_FLOOR;
-        events.push({ type: 'depart', elevatorId: e.id, floor: e.floor });
+        events.push({ type: 'depart', elevatorId: e.id, floor: e.floor, direction: nd });
       }
     }
   }

@@ -1,17 +1,41 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
 import { createElevator, addTarget, tickElevator } from '../logic/elevatorEngine';
 import { pickElevatorForCall } from '../logic/dispatcher';
-import { DEFAULT_ELEVATOR_COUNT } from '../constants';
+import { DEFAULT_ELEVATOR_COUNT, FLOOR_LABELS } from '../constants';
 
 const TICK_MS = 50;
-const MAX_HISTORY = 40;
+const MAX_HISTORY = 60;
+
+function eventToText(ev) {
+  const floorLabel = FLOOR_LABELS[ev.floor];
+  const carLabel = `Ascenseur ${ev.elevatorId + 1}`;
+
+  switch (ev.type) {
+    case 'call':
+      return `Appel à l'étage ${floorLabel} → assigné à l'ascenseur ${ev.assignedId + 1}`;
+    case 'destination':
+      return `${carLabel} : destination ${floorLabel} enregistrée`;
+    case 'arrive':
+      return `${carLabel} : arrivée à l'étage ${floorLabel}`;
+    case 'doors_open':
+      return `${carLabel} : portes ouvertes (étage ${floorLabel})`;
+    case 'doors_closing':
+      return `${carLabel} : fermeture des portes (étage ${floorLabel})`;
+    case 'depart':
+      return `${carLabel} : reprise du trajet vers le ${ev.direction === 'up' ? 'haut' : 'bas'} depuis ${floorLabel}`;
+    case 'idle':
+      return `${carLabel} : à l'arrêt à l'étage ${floorLabel}`;
+    default:
+      return `${carLabel} : ${ev.type}`;
+  }
+}
 
 export function useElevatorSystem() {
   const [elevatorCount, setElevatorCountState] = useState(DEFAULT_ELEVATOR_COUNT);
   const [elevators, setElevators] = useState(() =>
     Array.from({ length: DEFAULT_ELEVATOR_COUNT }, (_, i) => createElevator(i))
   );
-  const [pendingCalls, setPendingCalls] = useState({}); // { [floor]: elevatorId }
+  const [pendingCalls, setPendingCalls] = useState({});
   const [history, setHistory] = useState([]);
   const [isPaused, setIsPaused] = useState(false);
   const [speed, setSpeed] = useState(1);
@@ -30,7 +54,6 @@ export function useElevatorSystem() {
     setHistory((h) => [{ text, time: new Date() }, ...h].slice(0, MAX_HISTORY));
   }, []);
 
-  // Boucle de simulation principale
   useEffect(() => {
     const id = setInterval(() => {
       if (pausedRef.current) return;
@@ -39,13 +62,13 @@ export function useElevatorSystem() {
       setElevators((prev) => {
         const next = [];
         const arrivedFloors = [];
-        const events = [];
+        const allEvents = [];
 
         for (const e of prev) {
           const [ne, evs] = tickElevator(e, dt);
           next.push(ne);
           evs.forEach((ev) => {
-            events.push(ev);
+            allEvents.push(ev);
             if (ev.type === 'arrive') arrivedFloors.push(ev.floor);
           });
         }
@@ -58,13 +81,7 @@ export function useElevatorSystem() {
           });
         }
 
-        events.forEach((ev) => {
-          if (ev.type === 'arrive') {
-            pushHistory(`Ascenseur ${ev.elevatorId + 1} : arrivée à l'étage ${ev.floor === 0 ? 'RDC' : ev.floor}`);
-          } else if (ev.type === 'depart') {
-            pushHistory(`Ascenseur ${ev.elevatorId + 1} : reprise du trajet depuis l'étage ${ev.floor === 0 ? 'RDC' : ev.floor}`);
-          }
-        });
+        allEvents.forEach((ev) => pushHistory(eventToText(ev)));
 
         return next;
       });
@@ -78,12 +95,12 @@ export function useElevatorSystem() {
     const assignedId = pickElevatorForCall(elevatorsRef.current, floor);
     setElevators((prev) => prev.map((e) => (e.id === assignedId ? addTarget(e, floor) : e)));
     setPendingCalls((pc) => ({ ...pc, [floor]: assignedId }));
-    pushHistory(`Appel à l'étage ${floor === 0 ? 'RDC' : floor} → assigné à l'ascenseur ${assignedId + 1}`);
+    pushHistory(eventToText({ type: 'call', floor, assignedId, elevatorId: assignedId }));
   }, [pushHistory]);
 
   const selectDestination = useCallback((elevatorId, floor) => {
     setElevators((prev) => prev.map((e) => (e.id === elevatorId ? addTarget(e, floor) : e)));
-    pushHistory(`Destination ${floor === 0 ? 'RDC' : floor} sélectionnée dans l'ascenseur ${elevatorId + 1}`);
+    pushHistory(eventToText({ type: 'destination', floor, elevatorId }));
   }, [pushHistory]);
 
   const setElevatorCount = useCallback((count) => {

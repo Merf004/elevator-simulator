@@ -9,6 +9,7 @@ export default function Building({ elevators, pendingCalls, onCall, onSelectDest
   return (
     <div className="building">
       <div className="floors-column">
+        <div className="column-header-spacer" />
         {floorsTopDown.map((floorIndex) => (
           <Floor
             key={floorIndex}

@@ -1,4 +1,5 @@
 import React from 'react';
+import { Play, Pause } from 'lucide-react';
 import { SPEED_OPTIONS, MAX_ELEVATORS } from '../constants';
 
 export default function ControlBar({
@@ -9,7 +10,8 @@ export default function ControlBar({
   return (
     <div className="control-bar">
       <button className={`pause-btn ${isPaused ? 'paused' : ''}`} onClick={onTogglePause}>
-        {isPaused ? '▶ Reprendre' : '⏸ Pause'}
+        {isPaused ? <Play size={15} /> : <Pause size={15} />}
+        {isPaused ? 'Reprendre' : 'Pause'}
       </button>
 
       <div className="control-group">
